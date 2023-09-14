@@ -1,35 +1,30 @@
 const connection = require('../config/connection');
-const { User, Video } = require('../models');
-const { getRandomName, getRandomVideos } = require('./data');
+const { User, Thought } = require('../models');
+const { names, possibleReactions, possibleThoughts, generateReaction } = require('./data');
 
 connection.on('error', (err) => err);
 
 connection.once('open', async () => {
   console.log('connected');
-  await Video.deleteMany({});
+  await Thought.deleteMany({});
   await User.deleteMany({});
 
-  const users = [];
-  const videos = getRandomVideos(10);
-
-  for (let i = 0; i < 20; i++) {
-    const fullName = getRandomName();
-    const first = fullName.split(' ')[0];
-    const last = fullName.split(' ')[1];
-
-    users.push({
-      first,
-      last,
-      age: Math.floor(Math.random() * (99 - 18 + 1) + 18),
-    });
-  }
-
+  let users = names.map(name => ({ username: name, email: `${name.toLowerCase()}@gmail.com`, thoughts: [] }));
   await User.collection.insertMany(users);
-  await Video.collection.insertMany(videos);
-
-  // loop through the saved videos, for each video we need to generate a video response and insert the video responses
-  console.table(users);
-  console.table(videos);
+  users = await User.find({});
+  for (let i = 0; i < possibleThoughts.length; i++) {
+    const index = Math.floor(Math.random() * users.length);
+    const randomUser = users[index];
+    const thought = new Thought({
+      thoughtText: possibleThoughts[i],
+      username: randomUser.username,
+      userId: randomUser._id,
+      reactions: generateReaction()
+    });
+    await thought.save();
+    randomUser.thoughts.push(thought._id);
+    await randomUser.save();
+  }
   console.info('Seeding complete! 🌱');
   process.exit(0);
 });
